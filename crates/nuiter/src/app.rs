@@ -94,7 +94,7 @@ impl Core {
             IndexPhase::WaitingForRuntime => ("Search model not downloaded · words only · Download in Settings".into(), AMBER),
             IndexPhase::Idle => {
                 let device = if self.worker.is_running() { format!(" · model on {}", self.worker.device()) } else { String::new() };
-                (format!("Up to date · {} files · {} items{device}", thousands(s.files), thousands(s.chunks)), GREEN)
+                (format!("Up to date · {} files{device}", thousands(s.files)), GREEN)
             }
         }
     }

@@ -10,6 +10,14 @@ Everything stays on your PC.</p>
 Type what you remember, in any language: *"dog on the beach"*, *"laptop receipt"*, *"voice note about groceries"*.
 Nuiter finds the file even if it doesn't contain those words.
 
+<p align="center"><img src="docs/screenshots/search.png" width="800" alt="Nuiter's search window above the Windows taskbar, finding a photo of a lake at sunset"></p>
+
+| A PDF by what it says | A voice note by what is said | A screenshot by its text |
+|---|---|---|
+| <img src="docs/screenshots/search-pdf.png" alt="Finding an invoice PDF"> | <img src="docs/screenshots/search-audio.png" alt="Finding a voice memo"> | <img src="docs/screenshots/search-screenshot.png" alt="Finding a screenshot of a build error"> |
+
+<p align="center"><img src="docs/screenshots/settings.png" width="640" alt="Nuiter settings: folders to search and file types"></p>
+
 ## Install
 
 1. Download the zip from [Releases](../../releases) and unzip it anywhere.
