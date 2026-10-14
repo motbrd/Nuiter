@@ -28,7 +28,13 @@ pub struct UnitCosts {
     /// Frames at scene changes plus the soundtrack.
     pub per_video_second: f64,
     pub per_code_piece: f64,
+    /// The kinds this PC has measured enough of (a bit per `KINDS` entry). The rest are the defaults: a guess here,
+    /// since they come from other hardware.
+    pub measured: u8,
 }
+
+/// The kinds of units `CostLog` measures, in the order of `UnitCosts::measured`'s bits.
+const KINDS: [&str; 7] = ["photo", "screenshot", "pdf-page", "text-chunk", "audio-second", "video-second", "code-piece"];
 
 impl Default for UnitCosts {
     fn default() -> Self {
@@ -40,6 +46,7 @@ impl Default for UnitCosts {
             per_audio_second: 0.002,
             per_video_second: 0.05,
             per_code_piece: 0.08,
+            measured: 0,
         }
     }
 }
@@ -57,6 +64,11 @@ impl UnitCosts {
             _ => 0.05,
         }
     }
+
+    /// Whether this PC has measured `kind` (otherwise its cost is the default, a guess).
+    pub fn is_measured(&self, kind: &str) -> bool {
+        KINDS.iter().position(|k| *k == kind).is_some_and(|i| self.measured & (1 << i) != 0)
+    }
 }
 
 /// How much there is to index and how long it takes: the first step of every file, and the rest of long PDFs and
@@ -72,6 +84,8 @@ pub struct Workload {
     pub seconds: f64,
     /// The rest of long PDFs and documents: read once everything else has had its first step.
     pub rest_seconds: f64,
+    /// The part of `seconds` + `rest_seconds` from kinds this PC hasn't measured yet: default costs, a guess.
+    pub guessed_seconds: f64,
     /// For code search: about how big its part of the index gets on disk.
     pub bytes: f64,
 }
@@ -121,6 +135,7 @@ pub fn estimate<'a>(
             w.indexed += 1;
             continue;
         }
+        let before = now + later;
         match category {
             FileCategory::Image => {
                 now += if image::mode_for(path, true) == image::OcrMode::Full { costs.per_screenshot } else { costs.per_photo };
@@ -158,6 +173,9 @@ pub fn estimate<'a>(
                 w.bytes += chars as f64 * CODE_BYTES_PER_CHAR + pieces as f64 * CODE_BYTES_PER_PIECE;
             }
             FileCategory::None => {}
+        }
+        if unit_kind(category, path).is_some_and(|k| !costs.is_measured(k)) {
+            w.guessed_seconds += now + later - before;
         }
     }
     w.seconds = now;
@@ -308,7 +326,14 @@ impl CostLog {
                 None => d.for_kind(kind),
             }
         };
+        // Measured: enough units that the default's share in the blend is a sixth at most.
+        let measured = KINDS
+            .iter()
+            .enumerate()
+            .filter(|(_, k)| s.kinds.get(**k).is_some_and(|m| m.units >= 5.0 * prior_units(k)))
+            .fold(0u8, |bits, (i, _)| bits | 1 << i);
         UnitCosts {
+            measured,
             per_photo: blend("photo"),
             per_screenshot: blend("screenshot"),
             per_pdf_page: blend("pdf-page"),
@@ -378,6 +403,24 @@ mod tests {
         assert!((0.09..=0.1).contains(&m.unit_costs().per_photo));
         m.add("nonsense", 10.0, 1.0);
         assert_eq!(m.unit_costs().per_screenshot, UnitCosts::default().per_screenshot);
+    }
+
+    #[test]
+    fn a_time_is_a_guess_until_this_pc_has_measured_the_kind() {
+        let m = CostLog::default();
+        assert!(!m.unit_costs().is_measured("photo"));
+        m.add("photo", 10.0, 0.3);
+        assert!(!m.unit_costs().is_measured("photo"), "10 photos: the default still weighs half");
+        for _ in 0..5 {
+            m.add("photo", 10.0, 0.3);
+        }
+        let c = m.unit_costs();
+        assert!(c.is_measured("photo") && !c.is_measured("video-second"));
+        let files = [(r"C:\p\a.jpg", 1_000_000, FileCategory::Image, false), (r"C:\p\b.mp4", 8_000_000, FileCategory::Video, false)];
+        let w = estimate(files, &c, &Cancel::never(), Some(&|_: &str| None)).unwrap();
+        // The video (no duration in a file that isn't there: 8 s from its size) is guessed, the photo isn't.
+        assert!((w.guessed_seconds - 8.0 * c.per_video_second).abs() < 1e-9);
+        assert!(w.seconds > w.guessed_seconds);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! POST of /v1/embeddings whose body is written straight into the socket (pictures and sound as base64, never built as
 //! one big string first).
 
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
@@ -16,7 +16,18 @@ pub struct Response {
 }
 
 fn connect(port: u16, timeout: Duration) -> std::io::Result<TcpStream> {
-    let s = TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_secs(5))?;
+    let addr = ([127, 0, 0, 1], port).into();
+    // No local port free for a moment (10048/10049): wait for one rather than fail the file.
+    let mut tries = 0;
+    let s = loop {
+        match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
+            Err(e) if matches!(e.kind(), ErrorKind::AddrInUse | ErrorKind::AddrNotAvailable) && tries < 20 => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(250));
+            }
+            r => break r?,
+        }
+    };
     s.set_read_timeout(Some(timeout))?;
     s.set_write_timeout(Some(timeout))?;
     s.set_nodelay(true)?;
@@ -88,7 +99,13 @@ fn read_response(s: TcpStream) -> Result<Response> {
         r.read_exact(&mut body)?;
     } else {
         r.read_to_end(&mut body)?;
+        return Ok(Response { status, body });
     }
+    // Wait for llama-server to close first (it does at once after `Connection: close`): the side that closes first keeps
+    // the connection in TIME_WAIT for minutes, and ours, holding a local port each, ran out of ports at ~30 files/s
+    // (error 10048, the file marked unreadable).
+    let _ = r.get_ref().set_read_timeout(Some(Duration::from_secs(2)));
+    let _ = r.read_to_end(&mut Vec::new());
     Ok(Response { status, body })
 }
 

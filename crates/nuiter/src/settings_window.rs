@@ -187,6 +187,8 @@ pub struct SettingsWindow {
     taskbar_hidden: bool,
     /// Indexing was running at the last status: when it stops, the folders' counts are taken again.
     was_busy: bool,
+    /// When the folders' estimates were last taken while indexing runs (they follow what it measures, every 15 s).
+    estimated_at: std::time::Instant,
     closing: Cancel,
     icon: HICON,
 }
@@ -252,6 +254,7 @@ impl SettingsWindow {
             first_run,
             taskbar_hidden: registry::taskbar_search_mode() == 0,
             was_busy: false,
+            estimated_at: std::time::Instant::now(),
             closing: Cancel::new(),
             icon: HICON::default(),
         }));
@@ -333,7 +336,11 @@ impl SettingsWindow {
     pub fn status_changed(&mut self) {
         use nuiter_core::index::indexer::IndexPhase;
         let busy = matches!(core().indexer.status().phase, IndexPhase::Scanning | IndexPhase::Indexing);
-        if self.was_busy && !busy {
+        // Again when indexing ends, and every 15 s while it runs: the time shows once this PC has measured its first
+        // files (`describe`), then follows what it measures.
+        let refresh = (self.was_busy && !busy) || (busy && self.estimated_at.elapsed() > std::time::Duration::from_secs(15));
+        if refresh {
+            self.estimated_at = std::time::Instant::now();
             for l in [List::Folders, List::Code] {
                 let paths: Vec<String> = self.list(l).iter().map(|r| r.path.clone()).collect();
                 for p in paths {
@@ -961,7 +968,7 @@ impl SettingsWindow {
             IndexPhase::Paused => "Waiting".to_string(),
             IndexPhase::WaitingForRuntime => "Waiting for the search model".to_string(),
         };
-        let mut desc = format!("{} files · {} items", app::thousands(st.files), app::thousands(st.chunks));
+        let mut desc = format!("{} files", app::thousands(st.files));
         match st.phase {
             IndexPhase::Indexing if st.current.is_some() => {
                 desc += &format!(" · {}", file_kinds::pathx::file_name(st.current.as_deref().unwrap_or("")));
@@ -1527,7 +1534,8 @@ fn index_bytes() -> f64 {
     [db.clone(), db.with_extension("db-wal")].iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len() as f64).sum()
 }
 
-/// "3,412 files · ≈ 12 min to index", "3,412 files · indexed", plus the code index's size.
+/// "3,412 files · ≈ 12 min to index", "3,412 files · indexed", plus the code index's size. No time until this PC has
+/// measured most of what the folder holds: the default costs come from other hardware, and were 3× off on a fast one.
 fn describe(e: &Workload, code: bool) -> String {
     if e.files == 0 {
         return if code { "No code to index".into() } else { "Nothing to index".into() };
@@ -1539,6 +1547,9 @@ fn describe(e: &Workload, code: bool) -> String {
         return format!("{files} · indexed{size}");
     }
     let todo = if left == e.files { String::new() } else { format!(" · {} to go", app::thousands(left as i64)) };
+    if e.guessed_seconds > 0.2 * (e.seconds + e.rest_seconds) {
+        return format!("{files}{todo}{size}");
+    }
     let later = if e.rest_seconds >= 1.0 { format!(" (+ {} later)", forecast::duration_text(e.rest_seconds)) } else { String::new() };
     let time = if e.seconds < 0.5 { "< 1 s".to_string() } else { format!("≈ {}", forecast::duration_text(e.seconds)) };
     format!("{files}{todo} · {time} to index{later}{size}")

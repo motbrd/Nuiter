@@ -221,6 +221,9 @@ fn run(mut args: Vec<String>) -> Result<i32> {
                 if code {
                     line += &format!(", index ≈ {}", forecast::size_text(e.bytes));
                 }
+                if e.guessed_seconds >= 1.0 {
+                    line += &format!(" ({} of it from default costs, not measured on this PC)", forecast::duration_text(e.guessed_seconds));
+                }
                 println!("{line}");
             }
             indexer.stop();

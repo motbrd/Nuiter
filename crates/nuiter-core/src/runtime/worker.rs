@@ -421,6 +421,13 @@ impl Embedder for EmbeddingWorker {
                     Err(e) if e.downcast_ref::<EmbeddingError>().is_none() && attempt == 0 && !self.is_running() => {
                         Log::warn(format!("Embedding worker died ({e}); restarting"));
                     }
+                    // No local port to connect from: this PC's trouble, not the input's (the file is read again later).
+                    Err(e)
+                        if e.downcast_ref::<std::io::Error>()
+                            .is_some_and(|io| matches!(io.kind(), std::io::ErrorKind::AddrInUse | std::io::ErrorKind::AddrNotAvailable)) =>
+                    {
+                        return Err(EmbeddingError::unavailable(format!("couldn't connect to llama-server: {e}")).into());
+                    }
                     Err(e) if e.downcast_ref::<EmbeddingError>().is_none() => {
                         return Err(EmbeddingError::refused(format!("llama-server didn't answer: {e}")).into());
                     }

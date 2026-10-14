@@ -12,7 +12,7 @@ use anyhow::{Result, anyhow, bail};
 use sha2::{Digest, Sha256};
 
 use crate::cancel::Cancel;
-use crate::paths::Paths;
+use crate::paths::{Log, Paths};
 
 pub const LLAMA_BUILD: &str = "b11577";
 pub const MODEL_REPO: &str = "ggml-org/embeddinggemma-2-GGUF";
@@ -175,10 +175,21 @@ pub fn install(progress: &dyn Fn(&str, f64), cancel: &Cancel) -> Result<()> {
         }
         // A whole .part (the last run ended while verifying it, or the rename failed) isn't asked for again: a range
         // from its end is one the server can't satisfy (416), which failed every download after.
-        if existing < f.size {
-            download(f, &part, existing, &|got| {
+        // A connection that ends early is picked up where it stopped, a few times; what's there is kept for the next try.
+        let mut tries = 0;
+        while existing < f.size {
+            let got = download(f, &part, existing, &|got| {
                 progress(&format!("Downloading {}: {} / {} MB", f.name, got >> 20, f.size >> 20), (done + got) as f64 / total as f64)
             }, cancel)?;
+            if got >= f.size {
+                break;
+            }
+            tries += 1;
+            if tries >= 3 || got <= existing {
+                bail!("The download of {} stopped at {} of {} MB; it goes on from there next time.", f.name, got >> 20, f.size >> 20);
+            }
+            Log::warn(format!("Download of {} stopped at {} MB; going on", f.name, got >> 20));
+            existing = got;
         }
         progress(&format!("Verifying {}…", f.name), (done + f.size) as f64 / total as f64);
         let hash = sha256_file(&part, cancel)?;
@@ -209,8 +220,8 @@ pub fn install(progress: &dyn Fn(&str, f64), cancel: &Cancel) -> Result<()> {
 }
 
 /// Fetches `f` into `part`, going on from the `existing` bytes already there when the server can (206); `progress`
-/// gets the bytes so far.
-fn download(f: &RuntimeFile, part: &std::path::Path, mut existing: u64, progress: &dyn Fn(u64), cancel: &Cancel) -> Result<()> {
+/// gets the bytes so far. Returns the part's length when the server stopped sending.
+fn download(f: &RuntimeFile, part: &std::path::Path, mut existing: u64, progress: &dyn Fn(u64), cancel: &Cancel) -> Result<u64> {
     let headers = if existing > 0 { vec![format!("Range: bytes={existing}-")] } else { vec![] };
     let mut resp = crate::net::get(&f.url, &headers)?;
     if existing > 0 && resp.status == 416 {
@@ -243,7 +254,8 @@ fn download(f: &RuntimeFile, part: &std::path::Path, mut existing: u64, progress
             progress(got);
         }
     }
-    Ok(())
+    out.flush()?;
+    Ok(got)
 }
 
 fn host_of(url: &str) -> &str {

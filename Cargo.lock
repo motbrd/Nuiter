@@ -876,7 +876,7 @@ dependencies = [
 
 [[package]]
 name = "nuiter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "embed-resource",
@@ -890,7 +890,7 @@ dependencies = [
 
 [[package]]
 name = "nuiter-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "nuiter-core",
@@ -900,7 +900,7 @@ dependencies = [
 
 [[package]]
 name = "nuiter-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "half",
