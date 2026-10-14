@@ -1,0 +1,2 @@
+# Patches apply to llama.cpp checked out with LF line endings: keep them byte for byte.
+*.patch -text

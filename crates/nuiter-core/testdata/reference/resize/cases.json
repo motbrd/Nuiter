@@ -1,0 +1,38 @@
+[
+  {
+    "input": "photo.png",
+    "width": 624,
+    "height": 480,
+    "expected": "resize/photo-624x480.png"
+  },
+  {
+    "input": "photo.png",
+    "width": 432,
+    "height": 336,
+    "expected": "resize/photo-432x336.png"
+  },
+  {
+    "input": "screen.png",
+    "width": 1008,
+    "height": 624,
+    "expected": "resize/screen-1008x624.png"
+  },
+  {
+    "input": "screen.png",
+    "width": 1280,
+    "height": 480,
+    "expected": "resize/screen-1280x480.png"
+  },
+  {
+    "input": "noise.png",
+    "width": 96,
+    "height": 48,
+    "expected": "resize/noise-96x48.png"
+  },
+  {
+    "input": "noise.png",
+    "width": 5,
+    "height": 3,
+    "expected": "resize/noise-5x3.png"
+  }
+]

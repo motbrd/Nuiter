@@ -1,0 +1,78 @@
+[package]
+name = "nuiter-core"
+description = "Nuiter's engine: reading files, the index, search and the model runtime (no UI)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "nuiter_core"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }
+half = { version = "2.7", features = ["std"] }
+regex = "1"
+unicode-normalization = "0.1"
+unicode-general-category = "1"
+quick-xml = "0.42"
+zip = { version = "8", default-features = false, features = ["deflate"] }
+sha2 = "0.11"
+png = "0.18"
+pdf_oxide = { version = "0.3.78", default-features = false }
+# pdf_oxide 0.3.78 asks for office_oxide ^0.1.9 but didn't build with 0.1.12–0.1.13 (a field it doesn't fill); 0.1.14
+# builds again. Held exactly: a new one is tried by hand. zip, quick-xml and ogg follow what office_oxide and lewton use,
+# so each is in the build once.
+office_oxide = { version = "=0.1.14", default-features = false }
+ogg = "0.8"
+lewton = "0.10"
+opus-decoder = "0.1"
+
+[dependencies.windows]
+version = "0.62"
+features = [
+    "Foundation",
+    "Foundation_Collections",
+    "Data_Pdf",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Networking_Connectivity",
+    "Security_Cryptography",
+    "Storage",
+    "Storage_Streams",
+    "System_UserProfile",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Media_MediaFoundation",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_Networking_WinHttp",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_IndexServer",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_IO",
+    "Win32_System_JobObjects",
+    "Win32_System_Memory",
+    "Win32_System_Power",
+    "Win32_System_ProcessStatus",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_System_Time",
+    "Win32_System_Variant",
+    "Win32_System_WinRT",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
+]

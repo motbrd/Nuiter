@@ -1,0 +1,15 @@
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index 231b34d..9a90dd0 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -2239,6 +2239,10 @@ uint32_t llama_context::output_reserve(int32_t n_outputs) {
+     if (model.arch == LLM_ARCH_T5) {
+         has_logits = true;
+         has_embd   = true;
++    } else if (has_embd && cparams.pooling_type != LLAMA_POOLING_TYPE_NONE) {
++        // [nuiter] Pooled embeddings are one vector per sequence and nobody reads per-token logits. Sizing them anyway
++        // costs n_vocab floats per output row: about 1 MiB a token for a 262k-token vocabulary.
++        has_logits = false;
+     }
+ 
+     size_t backend_float_count = 0;

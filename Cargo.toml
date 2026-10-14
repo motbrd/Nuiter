@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/nuiter-core", "crates/nuiter-cli", "crates/nuiter"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+authors = ["Nuiter contributors"]
+
+[workspace.dependencies]
+nuiter-core = { path = "crates/nuiter-core" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.clippy]
+# Every unsafe block says why it's sound.
+undocumented_unsafe_blocks = "warn"
+
+# Small and fast: the app is a tray resident and every megabyte counts.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+strip = "symbols"
+debug = false
+
+[profile.dev.package."*"]
+opt-level = 2
